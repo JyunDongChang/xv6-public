@@ -6,13 +6,16 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "pstat.h"
 
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
 } ptable;
 
+static struct pstat pstat[NPROC];
 static struct proc *initproc;
+static int ruid = 0;
 
 int nextpid = 1;
 extern void forkret(void);
@@ -112,6 +115,9 @@ found:
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
 
+  // Set Pstat
+  setpstat(p);
+
   return p;
 }
 
@@ -150,6 +156,9 @@ userinit(void)
 
   p->state = RUNNABLE;
 
+  // Set Pstat
+  setpstat(p);
+
   release(&ptable.lock);
 }
 
@@ -170,6 +179,10 @@ growproc(int n)
       return -1;
   }
   curproc->sz = sz;
+
+  // Set Pstat
+  setpstat(curproc);
+
   switchuvm(curproc);
   return 0;
 }
@@ -203,6 +216,9 @@ fork(void)
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
 
+  // Add Uid Data
+  np->uid = np->euid = getreuid();
+
   for(i = 0; i < NOFILE; i++)
     if(curproc->ofile[i])
       np->ofile[i] = filedup(curproc->ofile[i]);
@@ -211,6 +227,9 @@ fork(void)
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
   pid = np->pid;
+
+  // Set Pstat
+  setpstat(np);
 
   acquire(&ptable.lock);
 
@@ -263,6 +282,10 @@ exit(void)
 
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
+
+  // Set Pstat
+  setpstat(curproc);
+
   sched();
   panic("zombie exit");
 }
@@ -296,6 +319,10 @@ wait(void)
         p->killed = 0;
         p->state = UNUSED;
         release(&ptable.lock);
+
+        // Set Pstat
+        setpstat(p);
+
         return pid;
       }
     }
@@ -342,6 +369,9 @@ scheduler(void)
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
+   
+      // Set Pstat
+      setpstat(p);
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -367,6 +397,9 @@ sched(void)
 {
   int intena;
   struct proc *p = myproc();
+
+  // Set Pstat
+  setpstat(p);
 
   if(!holding(&ptable.lock))
     panic("sched ptable.lock");
@@ -488,6 +521,10 @@ kill(int pid)
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING)
         p->state = RUNNABLE;
+
+      // Set Pstat
+      setpstat(p);
+
       release(&ptable.lock);
       return 0;
     }
@@ -530,5 +567,40 @@ procdump(void)
         cprintf(" %p", pc[i]);
     }
     cprintf("\n");
+  }
+}
+
+// Uid Function
+int setreuid(int uid){
+  ruid = uid;
+  return ruid;
+}
+
+int getreuid(void){
+  return ruid;
+}
+
+// Set Proccess State
+void setpstat(struct proc* p){
+  int i = p-ptable.proc;
+  pstat[i].state = p->state;
+  pstat[i].pid = p->pid;
+  pstat[i].uid = p->uid;
+  pstat[i].euid = p->euid;
+  safestrcpy(pstat[i].name, p->name, sizeof(p->name));
+  pstat[i].priority = 0;
+}
+
+// Output Process State
+void getpstat(struct pstat* pstatOut){
+  int i;
+
+  for(i = 0; i<NPROC; i++){
+    pstatOut[i].state = pstat[i].state;
+    pstatOut[i].pid = pstat[i].pid;
+    pstatOut[i].uid = pstat[i].uid;
+    pstatOut[i].euid = pstat[i].euid;
+    safestrcpy(pstatOut[i].name, pstat[i].name, sizeof(pstat[i].name));
+    pstatOut[i].priority =  pstat[i].priority;
   }
 }

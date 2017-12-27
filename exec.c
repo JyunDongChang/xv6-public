@@ -6,6 +6,7 @@
 #include "defs.h"
 #include "x86.h"
 #include "elf.h"
+#include "pstat.h"
 
 int
 exec(char *path, char **argv)
@@ -99,6 +100,13 @@ exec(char *path, char **argv)
   curproc->sz = sz;
   curproc->tf->eip = elf.entry;  // main
   curproc->tf->esp = sp;
+
+  //Add Uid Data
+  curproc->uid = curproc->euid = getreuid();
+
+  // Set Pstat
+  setpstat(curproc);
+
   switchuvm(curproc);
   freevm(oldpgdir);
   return 0;

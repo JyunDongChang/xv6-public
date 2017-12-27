@@ -89,3 +89,45 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// Shutdown
+int
+sys_halt(void)
+{
+  char *p = "Shutdown";
+  for( ; *p; p++)
+
+  outw (0xB004, 0x2000);
+  outw(0x8900, *p);
+  cprintf("shutdown\n");
+  return 0;
+}
+
+// Uid System_Call
+int
+sys_setreuid(void)
+{
+  int ruid;
+
+  if(argint(0, &ruid) < 0)
+    return -1;
+  return setreuid(ruid);
+}
+
+int
+sys_getreuid(void)
+{
+  return getreuid();
+}
+
+int
+sys_getpstat(void)
+{
+  struct pstat* temp;
+
+  if(argptr(0, (void*)&temp, sizeof(temp)) < 0)
+    return -1;
+
+  getpstat(temp);
+  return 0;
+}

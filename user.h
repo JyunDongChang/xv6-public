@@ -1,5 +1,6 @@
 struct stat;
 struct rtcdate;
+struct pstat;
 
 // system calls
 int fork(void);
@@ -23,6 +24,10 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+int halt(void);
+int setreuid(int);
+int getreuid(void);
+int getpstat(struct pstat*);
 
 // ulib.c
 int stat(char*, struct stat*);
@@ -37,3 +42,14 @@ void* memset(void*, int, uint);
 void* malloc(uint);
 void free(void*);
 int atoi(const char*);
+
+int strcompare(const char *a, const char *b);
+void scanf(char *a, int max);
+void concat(char* a, char* b);
+char* itoa(int a, char* out);
+
+int findUser(char* data, char* buf);
+int findNullUid(char* data);
+int checkPassword(char* data, char* buf, char* user);
+int changePassword(char* data, char* buf, char* user);
+int deleteAccount(char* data, char* buf);

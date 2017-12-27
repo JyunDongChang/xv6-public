@@ -4,13 +4,15 @@
 #include "stat.h"
 #include "user.h"
 #include "fcntl.h"
+#include "Account.h"
 
-char *argv[] = { "sh", 0 };
+char type[100] = { "login" };
+char *argv[] = { type, 0 };
 
 int
 main(void)
 {
-  int pid, wpid;
+  int pid, wpid, fd;
 
   if(open("console", O_RDWR) < 0){
     mknod("console", 1, 1);
@@ -20,15 +22,30 @@ main(void)
   dup(0);  // stderr
 
   for(;;){
-    printf(1, "init: starting sh\n");
+    if((fd = open(AccountFile, O_RDONLY)) < 0 && getreuid() >= 0)
+      printf(1, "init: starting sh\n\n");
+    else if(getreuid() >= 0)
+      printf(1, "init: starting login\n\n");
+    
     pid = fork();
+    //printf(1, "Pid: %d ForkPid: %d\n", getpid(), pid);
+
     if(pid < 0){
       printf(1, "init: fork failed\n");
       exit();
     }
     if(pid == 0){
-      exec("sh", argv);
-      printf(1, "init: exec sh failed\n");
+      if(getreuid() >= 0)
+        exec("login", argv);
+      else if(fd > 0)
+        exec("login", argv);
+      else{
+        strcpy(argv[0], "unlockNoUser");
+        exec("unlockNoUser", argv);
+        strcpy(argv[0], "login");
+      }
+
+      printf(1, "init: exec failed\n");
       exit();
     }
     while((wpid=wait()) >= 0 && wpid != pid)
